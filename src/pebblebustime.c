@@ -2,17 +2,19 @@
 
 static Window *window;
 
-static TextLayer *stopName_layer;
 static TextLayer *lineName_layer;
+static TextLayer *stopName_layer;
+static TextLayer *vehicleStopName_layer;
 static TextLayer *distance_layer;
 
 static AppSync sync;
-static uint8_t sync_buffer[64];
+static uint8_t sync_buffer[124];
 
 enum BusKey{
   LINENAME_KEY = 0x0,         // TUPLE_CSTRING
   STOPNAME_KEY = 0x1,         // TUPLE_CSTRING
-  DISTANCE_KEY = 0x2,         // TUPLE_CSTRING
+  VEHICLESTOPNAME_KEY = 0x2,  // TUPLE_CSTRING
+  DISTANCE_KEY = 0x3,         // TUPLE_CSTRING
 };
 
 static void sync_error_callback(DictionaryResult dict_error,
@@ -30,6 +32,9 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
         break;
     case STOPNAME_KEY:
         text_layer_set_text(stopName_layer, new_tuple->value->cstring);
+        break;
+    case VEHICLESTOPNAME_KEY:
+        text_layer_set_text(vehicleStopName_layer, new_tuple->value->cstring);
         break;
     case DISTANCE_KEY:
         text_layer_set_text(distance_layer, new_tuple->value->cstring);
@@ -81,23 +86,31 @@ static void window_load(Window *window){
   text_layer_set_text_alignment(lineName_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(lineName_layer));
 
-  stopName_layer = text_layer_create(GRect(0, 65, 144, 68));
+  stopName_layer = text_layer_create(GRect(0, 45, 144, 48));
   text_layer_set_text_color(stopName_layer, GColorWhite);
   text_layer_set_background_color(stopName_layer, GColorClear);
-  text_layer_set_font(stopName_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  text_layer_set_font(stopName_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(stopName_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(stopName_layer));
+
+  vehicleStopName_layer = text_layer_create(GRect(0, 85, 144, 68));
+  text_layer_set_text_color(vehicleStopName_layer, GColorWhite);
+  text_layer_set_background_color(vehicleStopName_layer, GColorClear);
+  text_layer_set_font(vehicleStopName_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_text_alignment(vehicleStopName_layer, GTextAlignmentCenter);
+  layer_add_child(window_layer, text_layer_get_layer(vehicleStopName_layer));
 
   distance_layer = text_layer_create(GRect(0, 125, 144, 68));
   text_layer_set_text_color(distance_layer, GColorWhite);
   text_layer_set_background_color(distance_layer, GColorClear);
-  text_layer_set_font(distance_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  text_layer_set_font(distance_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   text_layer_set_text_alignment(distance_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(distance_layer));
 
   Tuplet initial_values[] = {
       TupletCString(LINENAME_KEY, "foo"),
-      TupletCString(STOPNAME_KEY, "bar"),
+      TupletCString(STOPNAME_KEY, "foo"),
+      TupletCString(VEHICLESTOPNAME_KEY, "bar"),
       TupletCString(DISTANCE_KEY, "baz"),
   };
 
@@ -111,6 +124,7 @@ static void window_unload(Window *window){
 
     text_layer_destroy(lineName_layer);
     text_layer_destroy(stopName_layer);
+    text_layer_destroy(vehicleStopName_layer);
     text_layer_destroy(distance_layer);
 }
 

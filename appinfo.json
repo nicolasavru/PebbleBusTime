@@ -14,7 +14,8 @@
   "appKeys": {
     "lineName": 0,
     "stopName": 1,
-    "distance": 2
+    "vehicleStopName": 2,
+    "distance": 3
   },
   "resources": {
     "media": []

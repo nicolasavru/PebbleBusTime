@@ -21,24 +21,26 @@ function fetchNextBus(stopObj){
       if(req.status == 200){
         console.log(req.responseText);
         response = JSON.parse(req.responseText);
-        var stopName, lineName, presentableDistance;
+        var vehicleStopName, lineName, presentableDistance;
         if(response &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery.length > 0 &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit.length > 0){
           var vehicleResult = response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit[0].MonitoredVehicleJourney;
-          stopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
+          vehicleStopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
           presentableDistance = vehicleResult.OnwardCalls.OnwardCall[0].Extensions.Distances.PresentableDistance;
           console.log(stopObj.routes[routeIdx].name);
-          console.log(stopName);
+          console.log(vehicleStopName);
           console.log(presentableDistance);
           Pebble.sendAppMessage({
             "lineName":stopObj.routes[routeIdx].name,
-            "stopName":stopName,
+            "stopName":stopObj.name,
+            "vehicleStopName":vehicleStopName,
             "distance":presentableDistance});
         }
-      } else {
+      }
+      else{
         console.log("Error");
       }
     }
