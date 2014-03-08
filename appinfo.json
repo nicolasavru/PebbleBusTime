@@ -1,0 +1,22 @@
+{
+  "uuid": "b1945f21-ed0d-4567-9c34-b221f1f9acb1",
+  "shortName": "PebbleBusTime",
+  "longName": "PebbleBusTime",
+  "companyName": "Nicolas Avrutin",
+  "versionCode": 1,
+  "versionLabel": "0.0.1",
+  "watchapp": {
+    "watchface": false
+  },
+  "capabilities": [
+    "location"
+  ],
+  "appKeys": {
+    "stopName": 0,
+    "lineName": 1,
+    "distance": 2
+  },
+  "resources": {
+    "media": []
+  }
+}
