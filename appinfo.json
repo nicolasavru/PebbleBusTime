@@ -12,8 +12,8 @@
     "location"
   ],
   "appKeys": {
-    "stopName": 0,
-    "lineName": 1,
+    "lineName": 0,
+    "stopName": 1,
     "distance": 2
   },
   "resources": {
