@@ -1,14 +1,48 @@
 var key = "TEST"
 var routeIdx = 0;
 
+// https://gist.github.com/Neal/7688920
+var appMessageQueue = {
+  queue: [],
+  numTries: 0,
+  maxTries: 5,
+  add: function(obj){
+    this.queue.push(obj);
+  },
+  clear: function(){
+    this.queue = [];
+  },
+  isEmpty: function(){
+    return this.queue.length === 0;
+  },
+  nextMessage: function(){
+    return this.isEmpty() ? {} : this.queue[0];
+  },
+  send: function(){
+    if(this.queue.length > 0){
+      var ack = function(){
+        appMessageQueue.numTries = 0;
+        appMessageQueue.queue.shift();
+        appMessageQueue.send();
+      };
+      var nack = function(){
+        appMessageQueue.numTries++;
+        console.log("Got a nack, retrying.")
+        appMessageQueue.send();
+      };
+      if(this.numTries >= this.maxTries){
+        console.log('Failed sending AppMessage: ' + JSON.stringify(this.nextMessage()));
+        ack();
+      }
+      // console.log(JSON.stringify(this.nextMessage()));
+      Pebble.sendAppMessage(this.nextMessage(), ack, nack);
+    }
+  }
+};
+
 function fetchNextBus(stopObj){
   var response;
-  if(routeIdx >= stopObj.routes.length){
-    routeIdx = stopObj.routes.length -1;
-  }
-  else if(routeIdx < 0){
-    routeIdx = 0;
-  }
+  routeIdx %= stopObj.routes.length;
   console.log(routeIdx);
   var req = new XMLHttpRequest();
   req.open('GET', "http://bustime.mta.info/api/siri/stop-monitoring.json?" +
@@ -27,17 +61,27 @@ function fetchNextBus(stopObj){
            response.Siri.ServiceDelivery.StopMonitoringDelivery.length > 0 &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit.length > 0){
-          var vehicleResult = response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit[0].MonitoredVehicleJourney;
-          vehicleStopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
-          presentableDistance = vehicleResult.OnwardCalls.OnwardCall[0].Extensions.Distances.PresentableDistance;
-          console.log(stopObj.routes[routeIdx].name);
-          console.log(vehicleStopName);
-          console.log(presentableDistance);
-          Pebble.sendAppMessage({
+          var numBuses = response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit.length;
+          // console.log("numBuses");
+          // console.log(numBuses);
+          appMessageQueue.add({
             "lineName":stopObj.routes[routeIdx].name,
             "stopName":stopObj.name,
-            "vehicleStopName":vehicleStopName,
-            "distance":presentableDistance});
+            "numBuses":numBuses
+          });
+          for(var i = 0; i < numBuses; i++){
+            var vehicleResult = response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit[i].MonitoredVehicleJourney;
+            vehicleStopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
+            presentableDistance = vehicleResult.OnwardCalls.OnwardCall[0].Extensions.Distances.PresentableDistance;
+            appMessageQueue.add({
+              "bus":[i,
+                      vehicleStopName.length, vehicleStopName,
+                      presentableDistance.length, presentableDistance
+                     ]
+              });
+          }
+
+          appMessageQueue.send();
         }
       }
       else{
@@ -113,8 +157,8 @@ function locationError(err) {
 
   Pebble.sendAppMessage({
     "stopName":"Loc Unavailable",
-    "lineName":"N/A",
-    "distance":"N/A"});
+    "lineName":"N/A"
+  });
 }
 
 var locationOptions = {"enableHighAccuracy":true, "timeout":15000, "maximumAge":300000};
@@ -122,9 +166,13 @@ var locationOptions = {"enableHighAccuracy":true, "timeout":15000, "maximumAge":
 Pebble.addEventListener("ready",
                         function(e){
                           console.log("connect!" + e.ready);
-                          locationWatcher = window.navigator.geolocation.watchPosition(locationSuccess,
-                                                                                       locationError,
-                                                                                       locationOptions);
+                          locationWatcher = window.navigator.geolocation.getCurrentPosition(locationSuccess,
+                                                                                            locationError,
+                                                                                            locationOptions);
+
+                          // locationWatcher = window.navigator.geolocation.watchPosition(locationSuccess,
+                          //                                                              locationError,
+                          //                                                              locationOptions);
                           console.log(e.type);
                         });
 
