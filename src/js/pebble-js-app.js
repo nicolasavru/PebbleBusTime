@@ -1,4 +1,4 @@
-var key = "TEST"
+var key = "TEST";
 var routeIdx = 0;
 
 // https://gist.github.com/Neal/7688920
@@ -34,11 +34,52 @@ var appMessageQueue = {
         console.log('Failed sending AppMessage: ' + JSON.stringify(this.nextMessage()));
         ack();
       }
-      // console.log(JSON.stringify(this.nextMessage()));
+      console.log(JSON.stringify(this.nextMessage()));
       Pebble.sendAppMessage(this.nextMessage(), ack, nack);
     }
   }
 };
+
+// http://stackoverflow.com/a/10915724
+function splitSlice(str, len){
+  var ret = [];
+  for(var offset = 0, strLen = str.length; offset < strLen; offset += len){
+    ret.push(str.slice(offset, len + offset));
+  }
+  return ret;
+}
+
+function transmitStringArr(key, arr){
+  // console.log(JSON.parse(arr));
+  console.log(arr);
+  var outstr = "";
+  for(var i = 0; i < arr.length; i++){
+    outstr+=String.fromCharCode(arr[i].length);
+    outstr+=(arr[i]);
+  }
+  // console.log(outstr);
+  // console.log(JSON.parse(outstr));
+  var outarr = splitSlice(outstr, 112);
+  // console.log(outarr);
+  // console.log(outarr.length);
+  var buf;
+  for(var i = 0; i < outarr.length; i++){
+    buf = [];
+    buf.push(outarr.length);
+    buf.push(i);
+    buf.push(outarr[i]);
+    if(i == outarr.length-1){
+      buf.push(255);
+    }
+    // console.log(buf);
+    // console.log({key:buf});
+    obj = {};
+    obj[key] = buf;
+    console.log(JSON.stringify(obj));
+    appMessageQueue.add(obj);
+  }
+  appMessageQueue.send();
+}
 
 function fetchNextBus(stopObj){
   var response;
@@ -55,7 +96,8 @@ function fetchNextBus(stopObj){
       if(req.status == 200){
         console.log(req.responseText);
         response = JSON.parse(req.responseText);
-        var vehicleStopName, lineName, presentableDistance;
+        var vehicleStopName, presentableDistance;
+        // TODO: display lineName and stopName even if no buses are running
         if(response &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery.length > 0 &&
@@ -145,6 +187,82 @@ function findNearestStop(lat, lon){
   req.send(null);
 }
 
+if(typeof String.prototype.startsWith != 'function'){
+  String.prototype.startsWith = function(str){
+    return this.slice(0, str.length) == str;
+  };
+}
+
+// http://stackoverflow.com/questions/8107226/how-to-sort-strings-in-javascript-numerically
+function sortArray(arr) {
+    var tempArr = [], n;
+    for (var i in arr) {
+        tempArr[i] = arr[i].match(/([^0-9]+)|([0-9]+)/g);
+        for (var j in tempArr[i]) {
+            if( ! isNaN(n = parseInt(tempArr[i][j])) ){
+                tempArr[i][j] = n;
+            }
+        }
+    }
+    tempArr.sort(function (x, y) {
+        for (var i in x) {
+            if (y.length < i || x[i] < y[i]) {
+                return -1; // x is longer
+            }
+            if (x[i] > y[i]) {
+                return 1;
+            }
+        }
+        return 0;
+    });
+    for (var i in tempArr) {
+        arr[i] = tempArr[i].join('');
+    }
+    return arr;
+}
+
+// borough should be one of the bus route prefixes:
+// Bx, B, M, Q, S, X
+function getRoutesByBorough(borough){
+  var response;
+  var req = new XMLHttpRequest();
+  // 30 seems to be enough to find the closest stop
+  req.open('GET', "http://bustime.mta.info/api/where/routes-for-agency/MTA%20NYCT.json?"
+           + "key=" + key, true);
+  req.onload = function(e){
+    if(req.readyState == 4){
+      if(req.status == 200){
+        // console.log(req.responseText);
+        response = JSON.parse(req.responseText);
+        var routes, shortNames, boroughShortNames;
+        if(response &&
+           response.data.list &&
+           response.data.list.length > 0){
+          routes = response.data.list;
+          shortNames = routes.map(function(e){return e.shortName;});
+          boroughShortNames = shortNames.filter(
+            function(e){
+              if(borough === "B"){
+                return (e.startsWith("B") && !e.startsWith("Bx"));
+              }
+              else{
+                return e.startsWith(borough);
+              }});
+          // TODO: improve or replace sortArray()
+          sortArray(boroughShortNames);
+          console.log(boroughShortNames);
+          transmitStringArr("routes", boroughShortNames);
+        }
+      }
+      else{
+        console.log("Error");
+      }
+    }
+  }
+  req.send(null);
+}
+
+
 function locationSuccess(pos){
   var coordinates = pos.coords;
   // console.log(coordinates.latitude);
@@ -181,11 +299,16 @@ Pebble.addEventListener("appmessage",
                           window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
                           console.log(e.type);
                           console.log(JSON.stringify(e.payload));
-                          routeIdx += e.payload.lineName;
-                          console.log(routeIdx);
-                          locationWatcher = window.navigator.geolocation.getCurrentPosition(locationSuccess,
-                                                                                            locationError,
-                                                                                            locationOptions);
+                          if(e.payload.hasOwnProperty("lineName")){
+                            routeIdx += e.payload.lineName;
+                            console.log(routeIdx);
+                            locationWatcher = window.navigator.geolocation.getCurrentPosition(locationSuccess,
+                                                                                              locationError,
+                                                                                              locationOptions);
+                          }
+                          else if(e.payload.hasOwnProperty("routes")){
+                            getRoutesByBorough(e.payload.routes);
+                          }
                         });
 
 Pebble.addEventListener("webviewclosed",

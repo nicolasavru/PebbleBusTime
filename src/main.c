@@ -1,5 +1,8 @@
 #include <pebble.h>
+#include "utils.h"
 #include "mainMenu.h"
+#include "boroughMenu.h"
+#include "routeMenu.h"
 
 Window *window;
 
@@ -9,12 +12,8 @@ TextLayer *stopName_layer;
 AppSync sync;
 uint8_t sync_buffer[1024];
 
-enum BusKey{
-  LINENAME_KEY = 0x0,         // TUPLE_CSTRING
-  STOPNAME_KEY = 0x1,         // TUPLE_CSTRING
-  NUMBUSES_KEY = 0x2,         // TUPLE_INT
-  BUS_KEY = 0x3,              // TUPLE_CSTRING
-};
+int seqnum;
+char buf[1024];
 
 void sync_error_callback(DictionaryResult dict_error,
                          AppMessageResult app_message_error,
@@ -24,6 +23,7 @@ void sync_error_callback(DictionaryResult dict_error,
 
 void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple,
                                  const Tuple* old_tuple, void* context){
+    // APP_LOG(APP_LOG_LEVEL_DEBUG, "key: %u", (unsigned int) key);
     switch(key){
     case LINENAME_KEY:
         text_layer_set_text(lineName_layer, new_tuple->value->cstring);
@@ -57,23 +57,61 @@ void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple,
         distances[menuIdx*32+entryLen] = 0;
 
         menu_layer_reload_data(mainMenu_layer);
+        break;
 
-    // case STOPS_KEY:
-    //     // Response format:
-    //     // Header of one bytes containing the total number of results,
-    //     // and one byte containing our current offset.  This is
-    //     // followed by a sequence of entries, which consist of one
-    //     // length byte followed by ASCII data
-    //     numBuses = new_tuple->value->cstring[0];
-    //     menuIdx = new_tuple->value->cstring[1];
-    //     int messageLoc = 2;
-    //     char entryLen;
-    //     for(int i = 0; i < numBuses; i++){
-    //         entryLen = new_tuple->value->cstring[messageLoc++];
-    //         strncpy(stops+(menuIdx+i)*32, new_tuple->value->cstring+messageLoc, entryLen);
-    //         messageLoc += entryLen;
-    //         stops[(menuIdx+i+1)*32-1] = 0;
-    //     }
+    case ROUTES_KEY:
+        // Response format:
+        // 112 byte string
+        // 1 byte: number of packets
+        // 1 byte: current packet number
+        // data: 1 byte specifying size of data, followed by n bytes of data
+
+        seqnum = new_tuple->value->cstring[1];
+        // first two bytes (number of packets and seqnum) are not
+        // needed locally, so don't copy them
+        memcpy(buf+seqnum*112, new_tuple->value->cstring+2, 112);
+
+        // got last segment
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "seqnum, numseqs: %d, %d", seqnum, new_tuple->value->cstring[0]);
+        if(seqnum == new_tuple->value->cstring[0]-1){
+            int bufLoc = 0;
+            int entryNum = 0;
+            int entryLen;
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", 108, buf[108]);
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", 109, buf[109]);
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", 110, buf[110]);
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", 111, buf[111]);
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", 112, buf[112]);
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", 113, buf[113]);
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", 114, buf[114]);
+
+            while(buf[bufLoc] != 255){
+                // APP_LOG(APP_LOG_LEVEL_DEBUG, "buf[%d] = %c", bufLoc, buf[bufLoc]);
+                entryLen = buf[bufLoc++];
+                // APP_LOG(APP_LOG_LEVEL_DEBUG, "entryLen: %d", entryLen);
+                // APP_LOG(APP_LOG_LEVEL_DEBUG, "entryNum: %d", entryNum);
+                memcpy(routes+entryNum*10, buf+bufLoc, entryLen);
+                routes[entryNum*10+entryLen] = 0;
+                entryNum++;
+                bufLoc+=entryLen;
+            }
+            numRoutes = entryNum;
+            menu_layer_reload_data(routeMenu_layer);
+            // APP_LOG(APP_LOG_LEVEL_DEBUG, "numRoutes: %d", numRoutes);
+        }
+        break;
+
+        // numBuses = new_tuple->value->cstring[0];
+        // seqnum = new_tuple->value->cstring[1];
+        // int routenum = 0;
+        // int messageLoc = 2;
+        // char entryLen;
+        // for(int i = 0; i < 112; i++){
+        //     entryLen = new_tuple->value->cstring[messageLoc++];
+        //     strncpy(routes+(routenum+i)*32, new_tuple->value->cstring+messageLoc, entryLen);
+        //     messageLoc += entryLen;
+        //     stops[(menuIdx+i+1)*32-1] = 0;
+        // }
     }
 }
 
@@ -117,12 +155,15 @@ void window_load(Window *window){
         TupletCString(STOPNAME_KEY, "bar"),
         TupletInteger(NUMBUSES_KEY, (uint8_t) 0),
         TupletCString(BUS_KEY, "\0\0\0\0\0\0"),
+        TupletCString(ROUTES_KEY, "\0\0\0\0\0\0"),
     };
 
     app_sync_init(&sync, sync_buffer, sizeof(sync_buffer), initial_values, ARRAY_LENGTH(initial_values),
                   sync_tuple_changed_callback, sync_error_callback, NULL);
 
-    mainMenu_load(window);
+    app_message_register_outbox_failed(&print_foo);
+
+    mainMenu_load();
 }
 
 void window_unload(Window *window){

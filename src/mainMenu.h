@@ -10,6 +10,6 @@ extern char distances[];
 extern char numBuses;
 extern char menuIdx;
 
-void mainMenu_load(Window *window);
+void mainMenu_load();
 
 #endif /* MAINMENU_H */

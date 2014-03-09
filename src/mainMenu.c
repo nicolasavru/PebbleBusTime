@@ -1,9 +1,11 @@
 #include <pebble.h>
 #include "utils.h"
-#include "busDetails.h"
+#include "boroughMenu.h"
 
 MenuLayer *mainMenu_layer;
 MenuLayerCallbacks mainMenu_callbacks;
+
+extern Window *window;
 
 // support up to 32 buses with each stop name and distance string less
 // than 64 characters
@@ -14,7 +16,7 @@ char menuIdx;
 
 void mainMenu_draw_header(GContext *ctx, const Layer *cell_layer,
                           uint16_t section_index, void *callback_context){
-    graphics_context_set_text_color(ctx, GColorBlack); // This is important.
+    graphics_context_set_text_color(ctx, GColorBlack);
     // graphics_draw_text(ctx, hex+2*section_index,
     //                    fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
     //                    GRect(0,0,layer_get_frame(cell_layer).size.w,layer_get_frame(cell_layer).size.h),
@@ -23,7 +25,7 @@ void mainMenu_draw_header(GContext *ctx, const Layer *cell_layer,
 
 void mainMenu_draw_row(GContext *ctx, const Layer *cell_layer,
                        MenuIndex *cell_index, void *callback_context){
-    graphics_context_set_text_color(ctx, GColorBlack); // This is important.
+    graphics_context_set_text_color(ctx, GColorBlack);
     // graphics_context_set_fill_color(ctx, GColorWhite);
     graphics_draw_text(ctx, stops+32*cell_index->row,
                        fonts_get_system_font(FONT_KEY_GOTHIC_14),
@@ -64,16 +66,16 @@ uint16_t mainMenu_get_num_sections(struct MenuLayer *menu_layer, void *callback_
 void mainMenu_select_click(struct MenuLayer *menu_layer,
                            MenuIndex *cell_index,
                            void *callback_context){
-    send_cmd(1);
+    send_cmd(LINENAME_KEY, 1);
 }
 
 void mainMenu_select_long_click(struct MenuLayer *menu_layer,
                                 MenuIndex *cell_index,
                                 void *callback_context){
-    showBusDetails(cell_index);
+    boroughMenu_load();
 }
 
-void mainMenu_load(Window *window){
+void mainMenu_load(){
     Layer *window_layer = window_get_root_layer(window);
     GRect frame = layer_get_bounds(window_layer);
 

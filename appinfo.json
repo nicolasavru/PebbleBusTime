@@ -15,7 +15,8 @@
     "lineName": 0,
     "stopName": 1,
     "numBuses": 2,
-    "bus": 3
+    "bus": 3,
+    "routes": 4
   },
   "resources": {
     "media": []
