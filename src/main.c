@@ -3,6 +3,7 @@
 #include "mainMenu.h"
 #include "boroughMenu.h"
 #include "routeMenu.h"
+#include "routeBusMenu.h"
 
 Window *window;
 
@@ -26,14 +27,20 @@ void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple,
     // APP_LOG(APP_LOG_LEVEL_DEBUG, "key: %u", (unsigned int) key);
     switch(key){
     case LINENAME_KEY:
+        strncpy(lineName, new_tuple->value->cstring, 9);
+        lineName[9] = 0;
         text_layer_set_text(lineName_layer, new_tuple->value->cstring);
         break;
     case STOPNAME_KEY:
         text_layer_set_text(stopName_layer, new_tuple->value->cstring);
         break;
     case NUMBUSES_KEY:
-        numBuses = new_tuple->value->uint8;
+        numBuses[0] = new_tuple->value->data[0];
+        numBuses[1] = new_tuple->value->data[1];
         menu_layer_reload_data(mainMenu_layer);
+        if(routeBusMenu_layer){
+            menu_layer_reload_data(routeBusMenu_layer);
+        }
         break;
 
     case BUS_KEY:

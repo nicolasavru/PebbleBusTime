@@ -81,13 +81,14 @@ function transmitStringArr(key, arr){
   appMessageQueue.send();
 }
 
-function fetchNextBus(stopObj){
+function fetchBusByStop(stopObj){
   var response;
   routeIdx %= stopObj.routes.length;
   console.log(routeIdx);
   var req = new XMLHttpRequest();
   req.open('GET', "http://bustime.mta.info/api/siri/stop-monitoring.json?" +
-           "key=" + key + "&MonitoringRef=" + stopObj.id +
+           "key=" + key + "&OperatorRef=MTA" +
+           "&MonitoringRef=" + stopObj.id +
            "&LineRef=" + stopObj.routes[routeIdx].id +
            "&StopMonitoringDetailLevel=calls" +
            "&MaximumNumberOfCallsOnwards=1", true);
@@ -109,10 +110,77 @@ function fetchNextBus(stopObj){
           appMessageQueue.add({
             "lineName":stopObj.routes[routeIdx].name,
             "stopName":stopObj.name,
-            "numBuses":numBuses
+            "numBuses":[numBuses, 0]
           });
+          // TODO: possibly hide buses with a scheduled layover
           for(var i = 0; i < numBuses; i++){
             var vehicleResult = response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit[i].MonitoredVehicleJourney;
+            vehicleStopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
+            presentableDistance = vehicleResult.OnwardCalls.OnwardCall[0].Extensions.Distances.PresentableDistance;
+            appMessageQueue.add({
+              "bus":[i,
+                      vehicleStopName.length, vehicleStopName,
+                      presentableDistance.length, presentableDistance
+                     ]
+              });
+          }
+
+          appMessageQueue.send();
+        }
+      }
+      else{
+        console.log("Error");
+      }
+    }
+  }
+  req.send(null);
+}
+
+function fetchBusesByRoute(routeID){
+  var response;
+  var req = new XMLHttpRequest();
+  // TODO: add support for MTABC routes and operators MTA%20NYCT/MTABC
+  // TODO: handle SBS route id
+  var fullRouteID = "MTA%20NYCT_" + routeID;
+  req.open('GET', "http://bustime.mta.info/api/siri/vehicle-monitoring.json?" +
+           "key=" + key + "&OperatorRef=MTA" + 
+           "&LineRef=" + fullRouteID +
+           "&StopMonitoringDetailLevel=calls" +
+           "&MaximumNumberOfCallsOnwards=1", true);
+  req.onload = function(e){
+    console.log("before readystate");
+    if (req.readyState == 4){
+      console.log("before status");
+      if(req.status == 200){
+        console.log(req.responseText);
+        response = JSON.parse(req.responseText);
+        var vehicleStopName, presentableDistance;
+        // TODO: display lineName and stopName even if no buses are running
+        if(response &&
+           response.Siri.ServiceDelivery.VehicleMonitoringDelivery &&
+           response.Siri.ServiceDelivery.VehicleMonitoringDelivery.length > 0 &&
+           response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity &&
+           response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity.length > 0){
+          var buses = response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity;
+          var dir0Buses = buses.filter(
+            function(e){
+              return e.MonitoredVehicleJourney.DirectionRef == 0;
+            });
+          var dir1Buses = buses.filter(
+            function(e){
+              return e.MonitoredVehicleJourney.DirectionRef == 1;
+            });
+          var numBuses = [dir0Buses.length, dir1Buses.length];
+          console.log("numBuses");
+          console.log(numBuses);
+
+          appMessageQueue.add({
+            "lineName":routeID,
+            "numBuses":numBuses
+          });
+          // LEFT OFF HERE
+          for(var i = 0; i < numBuses[0]; i++){
+            var vehicleResult = dir0Buses[i].MonitoredVehicleJourney;
             vehicleStopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
             presentableDistance = vehicleResult.OnwardCalls.OnwardCall[0].Extensions.Distances.PresentableDistance;
             appMessageQueue.add({
@@ -176,7 +244,7 @@ function findNearestStop(lat, lon){
             };
           }
           console.log(JSON.stringify(stopObj));
-          fetchNextBus(stopObj);
+          fetchBusByStop(stopObj);
         }
       }
       else{
@@ -296,10 +364,12 @@ Pebble.addEventListener("ready",
 
 Pebble.addEventListener("appmessage",
                         function(e){
-                          window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
                           console.log(e.type);
                           console.log(JSON.stringify(e.payload));
                           if(e.payload.hasOwnProperty("lineName")){
+                            window.navigator.geolocation.getCurrentPosition(locationSuccess,
+                                                                            locationError,
+                                                                            locationOptions);
                             routeIdx += e.payload.lineName;
                             console.log(routeIdx);
                             locationWatcher = window.navigator.geolocation.getCurrentPosition(locationSuccess,
@@ -308,6 +378,11 @@ Pebble.addEventListener("appmessage",
                           }
                           else if(e.payload.hasOwnProperty("routes")){
                             getRoutesByBorough(e.payload.routes);
+                          }
+                          else if(e.payload.hasOwnProperty("bus")){
+                            console.log("before");
+                            fetchBusesByRoute(e.payload.bus);
+                            console.log("after");
                           }
                         });
 

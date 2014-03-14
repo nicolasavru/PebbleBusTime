@@ -24,7 +24,6 @@ void send_cmd(int k, int v){
 
 void send_str(int k, const char *v){
     APP_LOG(APP_LOG_LEVEL_DEBUG, "trying to send %d, %s", k, v);
-    Tuplet value = TupletCString(k, v);
     DictionaryIterator *iter;
     app_message_outbox_begin(&iter);
 
@@ -33,7 +32,7 @@ void send_str(int k, const char *v){
         return;
     }
 
-    dict_write_tuplet(iter, &value);
+    dict_write_cstring(iter, k, v);
     APP_LOG(APP_LOG_LEVEL_DEBUG, "about to send %d, %s", k, v);
     AppMessageResult r;
     r = app_message_outbox_send();

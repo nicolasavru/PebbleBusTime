@@ -1,5 +1,6 @@
 #include <pebble.h>
 #include "utils.h"
+#include "routeBusMenu.h"
 
 Window* routeMenu_window;
 MenuLayer *routeMenu_layer;
@@ -10,12 +11,12 @@ char routes[128*10];
 int numRoutes;
 
 void routeMenu_draw_header(GContext *ctx, const Layer *cell_layer,
-                             uint16_t section_index, void *callback_context){
+                           uint16_t section_index, void *callback_context){
     graphics_context_set_text_color(ctx, GColorBlack);
 }
 
 void routeMenu_draw_row(GContext *ctx, const Layer *cell_layer,
-                          MenuIndex *cell_index, void *callback_context){
+                        MenuIndex *cell_index, void *callback_context){
     graphics_context_set_text_color(ctx, GColorBlack);
     // graphics_context_set_fill_color(ctx, GColorWhite);
     graphics_draw_text(ctx, routes+10*cell_index->row,
@@ -29,19 +30,19 @@ void routeMenu_draw_row(GContext *ctx, const Layer *cell_layer,
 }
 
 int16_t routeMenu_get_cell_height(struct MenuLayer *menu_layer,
-                                    MenuIndex *cell_index,
-                                    void *callback_context){
+                                  MenuIndex *cell_index,
+                                  void *callback_context){
     return 35;
 }
 
 int16_t routeMenu_get_header_height(struct MenuLayer *menu_layer,
-                                      uint16_t section_index,
-                                      void *callback_context){
+                                    uint16_t section_index,
+                                    void *callback_context){
     return 0;
 }
 
 uint16_t routeMenu_get_num_rows_in_section(struct MenuLayer *menu_layer,
-                                             uint16_t section_index,
+                                           uint16_t section_index,
                                            void *callback_context){
     return numRoutes;
 }
@@ -51,15 +52,16 @@ uint16_t routeMenu_get_num_sections(struct MenuLayer *menu_layer, void *callback
 }
 
 void routeMenu_select_click(struct MenuLayer *menu_layer,
-                              MenuIndex *cell_index,
-                              void *callback_context){
-    send_cmd(ROUTES_KEY, cell_index->row);
+                            MenuIndex *cell_index,
+                            void *callback_context){
+    send_str(BUS_KEY, routes + 10*cell_index->row);
+    routeBusMenu_load();
 }
 
 void routeMenu_select_long_click(struct MenuLayer *menu_layer,
-                                   MenuIndex *cell_index,
-                                   void *callback_context){
-    // showBusDetails(cell_index);
+                                 MenuIndex *cell_index,
+                                 void *callback_context){
+    // routeBusMenu_load();
 }
 
 void routeMenu_unload(Window* win){

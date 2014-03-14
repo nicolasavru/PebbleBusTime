@@ -11,7 +11,8 @@ extern Window *window;
 // than 64 characters
 char stops[32*64];
 char distances[32*64];
-char numBuses;
+// store numBuses for each direction on a line
+char numBuses[2];
 char menuIdx;
 
 void mainMenu_draw_header(GContext *ctx, const Layer *cell_layer,
@@ -53,10 +54,11 @@ int16_t mainMenu_get_header_height(struct MenuLayer *menu_layer,
     return 0;
 }
 
+// main menu only displays one direction
 uint16_t mainMenu_get_num_rows_in_section(struct MenuLayer *menu_layer,
                                           uint16_t section_index,
                                           void *callback_context){
-    return numBuses;
+    return numBuses[0];
 }
 
 uint16_t mainMenu_get_num_sections(struct MenuLayer *menu_layer, void *callback_context){

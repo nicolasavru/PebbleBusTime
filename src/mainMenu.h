@@ -7,7 +7,7 @@ extern MenuLayerCallbacks mainMenu_callbacks;
 extern char stops[];
 extern char distances[];
 
-extern char numBuses;
+extern char numBuses[];
 extern char menuIdx;
 
 void mainMenu_load();
