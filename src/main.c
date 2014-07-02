@@ -4,6 +4,7 @@
 #include "boroughMenu.h"
 #include "routeMenu.h"
 #include "routeBusMenu.h"
+#include "main.h"
 
 Window *window;
 
@@ -115,38 +116,8 @@ void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple,
             // APP_LOG(APP_LOG_LEVEL_DEBUG, "numRoutes: %d", numRoutes);
         }
         break;
-
-        // numBuses = new_tuple->value->cstring[0];
-        // seqnum = new_tuple->value->cstring[1];
-        // int routenum = 0;
-        // int messageLoc = 2;
-        // char entryLen;
-        // for(int i = 0; i < 112; i++){
-        //     entryLen = new_tuple->value->cstring[messageLoc++];
-        //     strncpy(routes+(routenum+i)*32, new_tuple->value->cstring+messageLoc, entryLen);
-        //     messageLoc += entryLen;
-        //     stops[(menuIdx+i+1)*32-1] = 0;
-        // }
     }
 }
-
-//  void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-//     send_cmd(0);
-// }
-
-//  void up_click_handler(ClickRecognizerRef recognizer, void *context){
-//     send_cmd(1);
-// }
-
-//  void down_click_handler(ClickRecognizerRef recognizer, void *context){
-//     send_cmd(-1);
-// }
-
-//  void click_config_provider(void *context){
-//     window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
-//     window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
-//     window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
-// }
 
 void window_load(Window *window){
     Layer *window_layer = window_get_root_layer(window);
@@ -173,10 +144,8 @@ void window_load(Window *window){
         TupletCString(ROUTES_KEY, "\0\0\0\0\0\0"),
     };
 
-
     app_sync_init(&sync, sync_buffer, sizeof(sync_buffer), initial_values, ARRAY_LENGTH(initial_values),
                   sync_tuple_changed_callback, sync_error_callback, NULL);
-
     app_message_register_outbox_failed(&outbox_failed_handler);
     app_message_register_inbox_dropped(&inbox_dropped_handler);
 
@@ -195,7 +164,6 @@ void init(void){
   window = window_create();
   // window_set_background_color(window, GColorBlack);
   window_set_fullscreen(window, true);
-  // window_set_click_config_provider(window, click_config_provider);
   window_set_window_handlers(window, (WindowHandlers) {
     .load = window_load,
     .unload = window_unload

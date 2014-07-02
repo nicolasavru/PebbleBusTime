@@ -100,5 +100,4 @@ void mainMenu_load(){
 
     menu_layer_set_callbacks(mainMenu_layer, NULL, mainMenu_callbacks);
     layer_add_child(window_layer, menu_layer_get_layer(mainMenu_layer));
-    window_stack_push(window, true);
 }
