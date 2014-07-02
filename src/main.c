@@ -13,13 +13,16 @@ TextLayer *stopName_layer;
 AppSync sync;
 uint8_t sync_buffer[1024];
 
+char stopName[STOPNAME_LEN];
+
 int seqnum;
 char buf[1024];
 
 void sync_error_callback(DictionaryResult dict_error,
                          AppMessageResult app_message_error,
                          void *context){
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d - %s",
+            app_message_error, translate_error(app_message_error));
 }
 
 void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple,
@@ -27,12 +30,17 @@ void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple,
     // APP_LOG(APP_LOG_LEVEL_DEBUG, "key: %u", (unsigned int) key);
     switch(key){
     case LINENAME_KEY:
-        strncpy(lineName, new_tuple->value->cstring, 9);
-        lineName[9] = 0;
-        text_layer_set_text(lineName_layer, new_tuple->value->cstring);
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "lineName changed: %d, %s",
+        //         strlen(new_tuple->value->cstring),
+        //         new_tuple->value->cstring);
+        strncpy(lineName, new_tuple->value->cstring, LINENAME_LEN-1);
+        lineName[LINENAME_LEN-1] = 0;
+        text_layer_set_text(lineName_layer, lineName);
         break;
     case STOPNAME_KEY:
-        text_layer_set_text(stopName_layer, new_tuple->value->cstring);
+        strncpy(stopName, new_tuple->value->cstring, STOPNAME_LEN-1);
+        stopName[STOPNAME_LEN-1] = 0;
+        text_layer_set_text(stopName_layer, stopName);
         break;
     case NUMBUSES_KEY:
         numBuses[0] = new_tuple->value->data[0];
@@ -165,10 +173,12 @@ void window_load(Window *window){
         TupletCString(ROUTES_KEY, "\0\0\0\0\0\0"),
     };
 
+
     app_sync_init(&sync, sync_buffer, sizeof(sync_buffer), initial_values, ARRAY_LENGTH(initial_values),
                   sync_tuple_changed_callback, sync_error_callback, NULL);
 
-    app_message_register_outbox_failed(&print_foo);
+    app_message_register_outbox_failed(&outbox_failed_handler);
+    app_message_register_inbox_dropped(&inbox_dropped_handler);
 
     mainMenu_load();
 }

@@ -9,7 +9,9 @@ enum BusKey{
   ROUTES_KEY = 0x4            // TUPLE_CSTRING
 };
 
-void print_foo(DictionaryIterator *iterator, AppMessageResult reason, void *context);
+char *translate_error(AppMessageResult result);
+void outbox_failed_handler(DictionaryIterator *iterator, AppMessageResult reason, void *context);
+void inbox_dropped_handler(AppMessageResult reason, void *context);
 void send_cmd(int k, int v);
 void send_str(int k, const char *v);
 

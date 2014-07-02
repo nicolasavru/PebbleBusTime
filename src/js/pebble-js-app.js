@@ -23,18 +23,23 @@ var appMessageQueue = {
       var ack = function(){
         appMessageQueue.numTries = 0;
         appMessageQueue.queue.shift();
-        appMessageQueue.send();
+        setTimeout(function(){
+          appMessageQueue.send();
+        }, 150);
       };
       var nack = function(){
         appMessageQueue.numTries++;
         console.log("Got a nack, retrying.")
-        appMessageQueue.send();
+        setTimeout(function(){
+          appMessageQueue.send();
+        }, 150);
       };
       if(this.numTries >= this.maxTries){
         console.log('Failed sending AppMessage: ' + JSON.stringify(this.nextMessage()));
         ack();
       }
       console.log(JSON.stringify(this.nextMessage()));
+      console.log(this.queue.length);
       Pebble.sendAppMessage(this.nextMessage(), ack, nack);
     }
   }
@@ -98,12 +103,10 @@ function fetchBusByStop(stopObj){
         console.log(req.responseText);
         response = JSON.parse(req.responseText);
         var vehicleStopName, presentableDistance;
-        // TODO: display lineName and stopName even if no buses are running
         if(response &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery &&
            response.Siri.ServiceDelivery.StopMonitoringDelivery.length > 0 &&
-           response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit &&
-           response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit.length > 0){
+           response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit){
           var numBuses = response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit.length;
           // console.log("numBuses");
           // console.log(numBuses);
@@ -112,7 +115,7 @@ function fetchBusByStop(stopObj){
             "stopName":stopObj.name,
             "numBuses":[numBuses, 0]
           });
-          // TODO: possibly hide buses with a scheduled layover
+
           for(var i = 0; i < numBuses; i++){
             var vehicleResult = response.Siri.ServiceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit[i].MonitoredVehicleJourney;
             vehicleStopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
@@ -129,7 +132,7 @@ function fetchBusByStop(stopObj){
         }
       }
       else{
-        console.log("Error");
+        console.log("Error fetching buses by stop.");
       }
     }
   }
@@ -148,54 +151,64 @@ function fetchBusesByRoute(routeID){
            "&StopMonitoringDetailLevel=calls" +
            "&MaximumNumberOfCallsOnwards=1", true);
   req.onload = function(e){
-    console.log("before readystate");
     if (req.readyState == 4){
-      console.log("before status");
       if(req.status == 200){
         console.log(req.responseText);
         response = JSON.parse(req.responseText);
         var vehicleStopName, presentableDistance;
-        // TODO: display lineName and stopName even if no buses are running
         if(response &&
            response.Siri.ServiceDelivery.VehicleMonitoringDelivery &&
            response.Siri.ServiceDelivery.VehicleMonitoringDelivery.length > 0 &&
-           response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity &&
-           response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity.length > 0){
+           response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity){
           var buses = response.Siri.ServiceDelivery.VehicleMonitoringDelivery[0].VehicleActivity;
-          var dir0Buses = buses.filter(
-            function(e){
-              return e.MonitoredVehicleJourney.DirectionRef == 0;
-            });
-          var dir1Buses = buses.filter(
-            function(e){
-              return e.MonitoredVehicleJourney.DirectionRef == 1;
-            });
-          var numBuses = [dir0Buses.length, dir1Buses.length];
+          buses =
+            [buses.filter(
+              function(e){
+                return e.MonitoredVehicleJourney.DirectionRef == 0;
+              }),
+             buses.filter(
+               function(e){
+                 return e.MonitoredVehicleJourney.DirectionRef == 1;
+               })];
+          var numBuses = [buses[0].length, buses[1].length];
           console.log("numBuses");
           console.log(numBuses);
+          // console.log(JSON.stringify(buses));
 
           appMessageQueue.add({
             "lineName":routeID,
             "numBuses":numBuses
           });
-          // LEFT OFF HERE
-          for(var i = 0; i < numBuses[0]; i++){
-            var vehicleResult = dir0Buses[i].MonitoredVehicleJourney;
-            vehicleStopName = vehicleResult.OnwardCalls.OnwardCall[0].StopPointName;
-            presentableDistance = vehicleResult.OnwardCalls.OnwardCall[0].Extensions.Distances.PresentableDistance;
+
+          // sort buses by progress along route
+          buses.map(
+            function(e){
+              e.sort(
+                function(a, b){
+                  return a.MonitoredVehicleJourney.MonitoredCall.Extensions.Distances.CallDistanceAlongRoute
+                    - b.MonitoredVehicleJourney.MonitoredCall.Extensions.Distances.CallDistanceAlongRoute;
+                });
+            });
+
+          // put both into single array for easy menu row indexing on pebble-side
+          buses = buses[0].concat(buses[1]);
+          for(var i = 0; i < buses.length; i++){
+            var vehicleResult = buses[i].MonitoredVehicleJourney;
+            vehicleStopName = vehicleResult.MonitoredCall.StopPointName
+            presentableDistance = vehicleResult.MonitoredCall.Extensions.Distances.PresentableDistance;
             appMessageQueue.add({
               "bus":[i,
-                      vehicleStopName.length, vehicleStopName,
-                      presentableDistance.length, presentableDistance
-                     ]
-              });
-          }
+                     vehicleStopName.length, vehicleStopName,
+                     presentableDistance.length, presentableDistance
+                    ]
+            });
+          };
 
           appMessageQueue.send();
         }
       }
       else{
-        console.log("Error");
+        console.log("Error fetching buses by route.");
       }
     }
   }
@@ -248,7 +261,7 @@ function findNearestStop(lat, lon){
         }
       }
       else{
-        console.log("Error");
+        console.log("Error finding nearest stop.");
       }
     }
   }
@@ -367,9 +380,6 @@ Pebble.addEventListener("appmessage",
                           console.log(e.type);
                           console.log(JSON.stringify(e.payload));
                           if(e.payload.hasOwnProperty("lineName")){
-                            window.navigator.geolocation.getCurrentPosition(locationSuccess,
-                                                                            locationError,
-                                                                            locationOptions);
                             routeIdx += e.payload.lineName;
                             console.log(routeIdx);
                             locationWatcher = window.navigator.geolocation.getCurrentPosition(locationSuccess,
@@ -380,9 +390,7 @@ Pebble.addEventListener("appmessage",
                             getRoutesByBorough(e.payload.routes);
                           }
                           else if(e.payload.hasOwnProperty("bus")){
-                            console.log("before");
                             fetchBusesByRoute(e.payload.bus);
-                            console.log("after");
                           }
                         });
 
